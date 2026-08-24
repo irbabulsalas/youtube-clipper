@@ -289,10 +289,19 @@ async def process_uploaded_job(
     
     try:
         jobs[job_id].status = "transcribing"
-        jobs[job_id].message = "Transcribing audio..."
+        jobs[job_id].message = "Extracting audio & transcribing..."
         jobs[job_id].progress = 30
         
-        transcript = transcriber.transcribe(video_path, language=None)
+        # Extract audio from video file (Whisper needs audio-only)
+        audio_path = video_path.rsplit(".", 1)[0] + "_audio.mp3"
+        if not os.path.exists(audio_path):
+            logger.info(f"Extracting audio from {video_path} → {audio_path}")
+            subprocess_run = os.system(f"ffmpeg -y -i '{video_path}' -vn -ar 16000 -ac 1 -b:a 96k '{audio_path}'")
+            if subprocess_run != 0 or not os.path.exists(audio_path):
+                # Fallback: use original file if it's already audio
+                audio_path = video_path
+        
+        transcript = transcriber.transcribe(audio_path, language=None)
         
         jobs[job_id].status = "analyzing"
         jobs[job_id].message = "Finding interesting moments..."
@@ -330,7 +339,7 @@ async def process_uploaded_job(
             srt_paths.append(srt_path)
             
             result = video_processor.process_clip(
-                audio_path=video_path,
+                audio_path=audio_path,
                 start_time=clip["start_time"],
                 end_time=clip["end_time"],
                 subtitle_path=srt_path,
