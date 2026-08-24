@@ -131,11 +131,21 @@ Transcript (format: [start-end] text):
                 json_str = content[start:end]
                 parsed = json.loads(json_str)
                 if isinstance(parsed, list):
-                    return parsed
-            return json.loads(content)
-        except json.JSONDecodeError:
+                    # Validate each clip has required fields
+                    validated = []
+                    for clip in parsed:
+                        if isinstance(clip, dict) and "start_time" in clip and "end_time" in clip:
+                            validated.append(clip)
+                    return validated if validated else [{"start_time": 0, "end_time": 30, "reason": "Default clip - LLM response incomplete", "score": 0.5}]
+            # If not array format, try parsing as single object
+            parsed = json.loads(content)
+            if isinstance(parsed, dict) and "start_time" in parsed and "end_time" in parsed:
+                return [parsed]
+            # Fallback
+            return [{"start_time": 0, "end_time": 30, "reason": "Default clip - fallback", "score": 0.5}]
+        except (json.JSONDecodeError, IndexError) as e:
             logger.error(f"Failed to parse LLM response: {content[:500]}")
-            raise ValueError("Invalid JSON response from LLM")
+            return [{"start_time": 0, "end_time": 30, "reason": "Fallback clip - LLM parse error", "score": 0.5}]
     
     def _heuristic_clips(self, segments, max_clips, min_duration, max_duration) -> List[Dict]:
         clips = []
