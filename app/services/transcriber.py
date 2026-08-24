@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class Transcriber:
-    def __init__(self, model_size: str = "small", device: str = "cpu", compute_type: str = "int8"):
+    def __init__(self, model_size: str = "tiny", device: str = "cpu", compute_type: str = "int8"):
         self.model_size = model_size
         self.device = device
         self.compute_type = compute_type
@@ -28,49 +28,49 @@ class Transcriber:
         segments, info = self.model.transcribe(
             audio_path,
             language=language,
-            beam_size=5,
-            vad_filter=True,
-            vad_parameters={
-                "min_silence_duration_ms": 500,
-                "speech_pad_ms": 200,
-            }
+            beam_size=1,
+            best_of=1,
+            vad_filter=False,
+            word_timestamps=False,
+            condition_on_previous_text=False,
         )
         
         segment_list = []
-        full_text = []
-        
         for seg in segments:
             segment_list.append({
                 "start": seg.start,
                 "end": seg.end,
-                "text": seg.text.strip()
+                "text": seg.text.strip(),
             })
-            full_text.append(seg.text.strip())
+        
+        full_text = " ".join(s["text"] for s in segment_list)
         
         return {
+            "text": full_text,
             "segments": segment_list,
             "language": info.language,
-            "language_probability": info.language_probability,
-            "text": " ".join(full_text)
+            "duration": getattr(info, 'duration', 0),
         }
     
-    def get_srt(self, segments: List[Dict], language: str = "en") -> str:
+    def get_srt(self, segments: List[Dict]) -> str:
+        """Convert segments to SRT format."""
         lines = []
-        for i, seg in enumerate(segments, 1):
+        for i, seg in enumerate(segments):
+            lines.append(str(i + 1))
             start = self._format_timestamp(seg["start"])
             end = self._format_timestamp(seg["end"])
-            lines.append(f"{i}")
             lines.append(f"{start} --> {end}")
             lines.append(seg["text"])
             lines.append("")
         return "\n".join(lines)
     
     def _format_timestamp(self, seconds: float) -> str:
+        """Format seconds as SRT timestamp."""
         hours = int(seconds // 3600)
         minutes = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        millis = int((seconds % 1) * 1000)
-        return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+        secs = seconds % 60
+        millisecs = int((secs - int(secs)) * 1000)
+        return f"{hours:02d}:{minutes:02d}:{int(secs):02d},{millisecs:03d}"
 
 
-transcriber = Transcriber()
+transcriber = Transcriber(model_size="tiny", device="cpu", compute_type="int8")

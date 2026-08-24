@@ -178,7 +178,7 @@ async def process_clip_job(job_id: str, request: ClipRequest):
             srt_paths.append(srt_path)
             
             result = video_processor.process_clip(
-                video_path=video_info["video_path"],
+                audio_path=video_info["audio_path"],
                 start_time=clip["start_time"],
                 end_time=clip["end_time"],
                 subtitle_path=srt_path,

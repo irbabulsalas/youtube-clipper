@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 import uuid
-import asyncio
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +13,10 @@ class VideoProcessor:
     def __init__(self, output_dir: str = "/tmp/youtube-clipper/output"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     def process_clip(
         self,
-        video_path: str,
+        audio_path: str,
         start_time: float,
         end_time: float,
         subtitle_path: Optional[str] = None,
@@ -26,132 +26,123 @@ class VideoProcessor:
     ) -> Dict[str, Any]:
         if clip_id is None:
             clip_id = str(uuid.uuid4())[:8]
-        
+
         output_path = str(self.output_dir / f"{clip_id}.mp4")
         duration = end_time - start_time
-        
+
         cmd = self._build_ffmpeg_command(
-            video_path=video_path,
+            audio_path=audio_path,
             output_path=output_path,
             start_time=start_time,
             duration=duration,
             aspect_ratio=aspect_ratio,
             subtitle_path=subtitle_path
         )
-        
-        logger.info(f"Running ffmpeg: {' '.join(cmd[:10])}...")
-        
+
+        logger.info(f"Running ffmpeg: {' '.join(cmd[:8])}...")
+
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
+
         if result.returncode != 0:
             logger.error(f"ffmpeg error: {result.stderr}")
             raise RuntimeError(f"ffmpeg failed: {result.stderr[:500]}")
-        
+
         size = os.path.getsize(output_path)
-        
+
         return {
             "output_path": output_path,
             "duration": duration,
             "size_bytes": size
         }
-    
+
     def _build_ffmpeg_command(
         self,
-        video_path: str,
+        audio_path: str,
         output_path: str,
         start_time: float,
         duration: float,
-        aspect_ratio: str,
-        subtitle_path: Optional[str]
+        aspect_ratio: str = "9:16",
+        subtitle_path: Optional[str] = None
     ) -> list:
-        cmd = [
-            "ffmpeg",
-            "-y",
-            "-ss", str(start_time),
-            "-i", video_path,
-            "-t", str(duration),
-        ]
+        """Build ffmpeg command to create vertical video clip from audio + subtitles."""
         
-        filters = []
-        
+        # Parse aspect ratio
         if aspect_ratio == "9:16":
-            filters.append("scale=1080:1920:force_original_aspect_ratio=decrease")
-            filters.append("pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black")
-        
-        if subtitle_path and os.path.exists(subtitle_path):
-            sub_path = subtitle_path.replace(":", "\\:").replace("'", "'\\''")
-            subtitle_filter = f"subtitles='{sub_path}':force_style='FontName=DejaVu Sans,FontSize=24,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,Outline=2'"
-            filters.append(subtitle_filter)
-        
-        if filters:
-            cmd.extend(["-vf", ",".join(filters)])
-        
-        cmd.extend([
+            width, height = 720, 1280
+        elif aspect_ratio == "16:9":
+            width, height = 1280, 720
+        else:
+            width, height = 720, 1280
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-ss", str(start_time),
+            "-t", str(duration),
+            "-i", audio_path,
+            # Create a black background and overlay audio waveform
+            "-f", "lavfi", "-i", f"color=c=black:s={width}x{height}:d={duration}",
+            # Extract audio segment
+            "-filter_complex",
+            (
+                f"[0:a]atrim=start={start_time}:end={end_time},asetpts=PTS-STARTPTS[a];"
+                f"[1:v]scale={width}:{height}[bg];"
+                f"[bg][a]overlay=shortest=1:x=0:y=0,scale={width}:{height}[v]"
+            ),
+            "-map", "[v]",
+            "-map", "0:a?",
             "-c:v", "libx264",
             "-preset", "fast",
-            "-crf", "23",
+            "-crf", "28",
             "-c:a", "aac",
             "-b:a", "128k",
             "-movflags", "+faststart",
-            output_path
-        ])
-        
+        ]
+
+        if subtitle_path and os.path.exists(subtitle_path):
+            cmd.extend([
+                "-vf", f"subtitles={subtitle_path}:charenc=utf-8:force_style='FontName=DejaVu Sans,FontSize=20,PrimaryColour=&H00FFFFFF,Bold=1'",
+            ])
+
+        cmd.append(output_path)
+
         return cmd
-    
-    def extract_segment_srt(self, full_srt: str, start_time: float, end_time: float) -> str:
-        lines = full_srt.strip().split("\n")
-        result_lines = []
-        current_entry = []
-        entry_start = None
-        entry_end = None
-        entry_num = 0
+
+    def extract_segment_srt(self, full_srt: str, start: float, end: float) -> str:
+        """Extract subtitle lines within time range and re-index them."""
+        import re
         
-        for line in lines:
-            current_entry.append(line)
-            
-            if "-->" in line:
-                parts = line.split(" --> ")
-                entry_start = self._parse_srt_timestamp(parts[0])
-                entry_end = self._parse_srt_timestamp(parts[1].strip())
-            elif line.strip() == "" and current_entry and entry_start is not None:
-                if entry_start >= start_time and entry_end <= end_time:
-                    entry_num += 1
-                    adjusted_entry = [str(entry_num)]
-                    
-                    new_start = max(0, entry_start - start_time)
-                    new_end = max(0, entry_end - start_time)
-                    adjusted_entry.append(
-                        f"{self._format_srt_timestamp(new_start)} --> {self._format_srt_timestamp(new_end)}"
-                    )
-                    
-                    for l in current_entry[2:]:
-                        if l.strip():
-                            adjusted_entry.append(l)
-                    
-                    adjusted_entry.append("")
-                    result_lines.extend(adjusted_entry)
+        blocks = re.split(r'\n\n+', full_srt.strip())
+        result_blocks = []
+        new_index = 1
+        
+        for block in blocks:
+            lines = block.strip().split('\n')
+            if len(lines) < 3:
+                continue
+            try:
+                # Parse timestamp
+                time_line = lines[1]
+                match = re.match(r'(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})', time_line)
+                if not match:
+                    continue
+                start_str, end_str = match.groups()
                 
-                current_entry = []
-                entry_start = None
-                entry_end = None
+                def parse_ts(ts):
+                    parts = ts.replace(',', '.').split(':')
+                    return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+                
+                block_start = parse_ts(start_str)
+                block_end = parse_ts(end_str)
+                
+                # Include if overlaps with segment
+                if block_end >= start and block_start <= end:
+                    text_part = "\n".join(lines[2:])
+                    result_blocks.append(f"{new_index}\n{lines[1]}\n{text_part}")
+                    new_index += 1
+            except Exception:
+                continue
         
-        return "\n".join(result_lines)
-    
-    def _parse_srt_timestamp(self, ts: str) -> float:
-        ts = ts.strip().replace(",", ":")
-        parts = ts.split(":")
-        hours = int(parts[0])
-        minutes = int(parts[1])
-        seconds = int(parts[2])
-        millis = int(parts[3]) if len(parts) > 3 else 0
-        return hours * 3600 + minutes * 60 + seconds + millis / 1000
-    
-    def _format_srt_timestamp(self, seconds: float) -> str:
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        millis = int((seconds % 1) * 1000)
-        return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+        return "\n\n".join(result_blocks)
 
 
 video_processor = VideoProcessor()

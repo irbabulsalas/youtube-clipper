@@ -23,15 +23,22 @@ class Settings(BaseSettings):
     llm_fallback_model: str = "laguna-s-2.1-free"
     llm_fallback_base_url: str = "https://opencode.ai/zen/v1"
     
-    # Whisper
-    whisper_model: str = "small"
+    # Whisper - optimized for RAM-limited environment (Railway Hobby = ~512MB RAM)
+    # NOTE: 'tiny' is used instead of 'small' to avoid OOM kills
+    # 'tiny' = ~256MB RAM, 'base' = ~512MB RAM, 'small' = ~1GB RAM
+    whisper_model: str = "tiny"
     whisper_device: str = "cpu"
+    whisper_compute_type: str = "int8"  # Use int8 quantization to reduce memory
     
-    # Video processing
+    # Video processing - limits to prevent OOM
     temp_dir: str = "/tmp/youtube-clipper"
-    max_video_duration: int = 3600
-    clip_max_duration: int = 180
+    max_video_duration: int = 120  # Hard limit: 2 minutes max video
+    clip_max_duration: int = 60     # Max clip output duration
     clip_ttl: int = 600  # seconds before auto-delete
+    
+    # Subtitle
+    subtitle_font: str = "DejaVu Sans"
+    subtitle_fontsize: int = 24
     
     # Data storage
     data_dir: str = "/app/data"

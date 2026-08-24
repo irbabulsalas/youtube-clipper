@@ -22,18 +22,30 @@ class YouTubeDownloader:
         
         base_path = self.output_dir / video_id
         
+        # Audio-only download: far more reliable + avoids bot detection
         ydl_opts = {
-            "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-            "outtmpl": str(base_path),
+            "format": "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio",
+            "outtmpl": str(base_path) + ".%(ext)s",
             "quiet": True,
             "no_warnings": True,
             "extract_flat": False,
             "writesubtitles": False,
             "writeautomaticsub": False,
-            "merge_output_format": "mp4",
+            "postprocessors": [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "128",
+            }],
         }
         
-        # Use cookies if available (bypasses YouTube bot detection on datacenter IPs)
+        # Spoof browser headers to reduce bot detection
+        ydl_opts["http_headers"] = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        }
+
+        # Use cookies if available
         if os.path.exists(COOKIES_PATH):
             ydl_opts["cookiefile"] = COOKIES_PATH
             logger.info(f"Using cookies from {COOKIES_PATH}")
@@ -41,17 +53,17 @@ class YouTubeDownloader:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             
-            video_path = str(base_path.with_suffix(".mp4"))
-            if not os.path.exists(video_path):
-                for ext in [".mp4", ".mkv", ".webm"]:
+            audio_path = str(base_path.with_suffix(".mp3"))
+            if not os.path.exists(audio_path):
+                for ext in [".mp3", ".m4a", ".webm", ".mp4"]:
                     candidate = str(base_path.with_suffix(ext))
                     if os.path.exists(candidate):
-                        video_path = candidate
+                        audio_path = candidate
                         break
             
             return {
-                "video_path": video_path,
-                "audio_path": video_path,  # Audio is embedded
+                "video_path": None,  # Not needed for now
+                "audio_path": audio_path,
                 "title": info.get("title", ""),
                 "duration": info.get("duration", 0),
                 "thumbnail": info.get("thumbnail", ""),
