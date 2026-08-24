@@ -45,13 +45,7 @@ class YouTubeDownloader:
                 "preferredquality": "128",
             }],
             "http_headers": BROWSER_HEADERS,
-            "extractor_args": {
-                "youtube": {
-                    "player_client": "ios,web",
-                    "player_skip": ["js", "config", "gl"],
-                    "innertube_key": True,
-                }
-            },
+
         }
         
         # Use cookies if available
