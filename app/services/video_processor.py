@@ -82,7 +82,7 @@ class VideoProcessor:
             "-f", "lavfi", "-i", f"color=c=black:s={width}x{height}:d={duration}",
             "-filter_complex",
             (
-                f"[0:a]atrim=start={start_time}:end={end_time},asetpts=PTS-STARTPTS[a];"
+                f"[0:a]atrim=start={start_time}:end={start_time + duration},asetpts=PTS-STARTPTS[a];"
                 f"[1:v]scale={width}:{height}[bg];"
                 f"[bg][a]overlay=shortest=1:x=0:y=0,scale={width}:{height}[v]"
             ),
