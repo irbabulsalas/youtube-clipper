@@ -87,6 +87,9 @@ class YouTubeDownloader:
         raise RuntimeError(f"Download failed after 3 attempts: {last_error}")
     
     def _extract_video_id(self, url: str) -> str:
+        # Strip query params from URL first
+        clean_url = url.split("?")[0].split("&")[0]
+        
         # YouTube patterns
         yt_patterns = [
             r"(?:v=|/v/|youtu\.be/)([a-zA-Z0-9_-]{11})",
@@ -94,20 +97,20 @@ class YouTubeDownloader:
         ]
         
         # Vimeo pattern
-        vimeo_match = re.search(r"vimeo\.com/(?:\d+/)?([a-zA-Z0-9]+)", url)
+        vimeo_match = re.search(r"vimeo\.com/(?:\d+/)?([a-zA-Z0-9]+)", clean_url)
         if vimeo_match:
             return "vimeo_" + vimeo_match.group(1)
         
         # Generic URL-based ID for non-Youtube
-        if "youtube.com" in url or "youtu.be" in url:
+        if "youtube.com" in clean_url or "youtu.be" in clean_url:
             for pattern in yt_patterns:
-                match = re.search(pattern, url)
+                match = re.search(pattern, clean_url)
                 if match:
                     return match.group(1)
         
         # Fallback: generate ID from URL hash
         import hashlib
-        return hashlib.md5(url.encode()).hexdigest()[:12]
+        return hashlib.md5(clean_url.encode()).hexdigest()[:12]
     
     def cleanup(self, video_id: str):
         import glob
