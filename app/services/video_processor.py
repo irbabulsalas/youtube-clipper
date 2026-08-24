@@ -66,22 +66,20 @@ class VideoProcessor:
     ) -> list:
         """Build ffmpeg command to create vertical video clip from audio + subtitles."""
         
-        # Parse aspect ratio
+        # Parse aspect ratio - lower resolution saves RAM
         if aspect_ratio == "9:16":
-            width, height = 720, 1280
+            width, height = 480, 854  # Lower than 720x1280
         elif aspect_ratio == "16:9":
-            width, height = 1280, 720
+            width, height = 854, 480
         else:
-            width, height = 720, 1280
-
+            width, height = 480, 854
+        
         cmd = [
             "ffmpeg", "-y",
             "-ss", str(start_time),
             "-t", str(duration),
             "-i", audio_path,
-            # Create a black background and overlay audio waveform
             "-f", "lavfi", "-i", f"color=c=black:s={width}x{height}:d={duration}",
-            # Extract audio segment
             "-filter_complex",
             (
                 f"[0:a]atrim=start={start_time}:end={end_time},asetpts=PTS-STARTPTS[a];"
@@ -91,10 +89,10 @@ class VideoProcessor:
             "-map", "[v]",
             "-map", "0:a?",
             "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", "28",
+            "-preset", "ultrafast",
+            "-crf", "30",
             "-c:a", "aac",
-            "-b:a", "128k",
+            "-b:a", "64k",
             "-movflags", "+faststart",
         ]
 

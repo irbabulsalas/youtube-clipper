@@ -42,10 +42,11 @@ class YouTubeDownloader:
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
-                "preferredquality": "128",
+                "preferredquality": "96",
             }],
             "http_headers": BROWSER_HEADERS,
-
+            "max_filesize": 5 * 1024 * 1024,
+            "noplaylist": True,
         }
         
         # Use cookies if available
