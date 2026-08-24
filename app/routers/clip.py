@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from app.models import ClipRequest, ClipJobStatus, ClipResult, AspectRatio, SubtitleLanguage
 from app.services.downloader import downloader
@@ -42,11 +42,11 @@ async def _schedule_ttl_deletion(path: str, ttl: int = CLIP_TTL_SECONDS):
 async def upload_and_create_clip(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    aspect_ratio: str = "9:16",
-    subtitle_language: str = "en",
-    max_clips: int = 3,
-    min_clip_duration: int = 15,
-    max_clip_duration: int = 60,
+    aspect_ratio: str = Form("9:16"),
+    subtitle_language: str = Form("en"),
+    max_clips: int = Form(3),
+    min_clip_duration: int = Form(15),
+    max_clip_duration: int = Form(60),
     current_user: User = Depends(get_current_user)
 ):
     """Upload video file langsung & generate clips (bypass YouTube)."""
@@ -69,15 +69,6 @@ async def upload_and_create_clip(
         f.write(contents)
     
     logger.info(f"Video uploaded by {current_user.username}: {saved_path}")
-    
-    # Create minimal request-like object for processing
-    class FakeRequest:
-        youtube_url = saved_path
-        aspect_ratio = AspectRatio(aspect_ratio)
-        subtitle_language = SubtitleLanguage(subtitle_language)
-        max_clips = max_clips
-        min_clip_duration = min_clip_duration
-        max_clip_duration = max_clip_duration
     
     background_tasks.add_task(process_uploaded_job, job_id, saved_path, aspect_ratio, subtitle_language, max_clips, min_clip_duration, max_clip_duration)
     
