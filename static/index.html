@@ -8,6 +8,7 @@
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
     <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <!-- Header -->
         <div class="flex justify-between items-center mb-8">
             <h1 class="text-3xl font-bold">🎬 YouTube Clipper</h1>
             <div class="flex items-center gap-3">
@@ -15,20 +16,46 @@
                 <button onclick="logout()" class="text-sm bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded">Logout</button>
             </div>
         </div>
-        
+
+        <!-- Cookies Upload -->
+        <div class="bg-gray-800 rounded-lg p-6 mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-lg font-semibold">📋 Upload Cookies YouTube</h2>
+                <button onclick="checkCookiesStatus()" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">Cek Status</button>
+            </div>
+            <p class="text-sm text-gray-400 mb-3">Upload file cookies.txt untuk bypass deteksi bot YouTube.</p>
+
+            <form id="cookiesForm" class="flex gap-3">
+                <input
+                    type="file"
+                    id="cookiesFile"
+                    accept=".txt"
+                    class="flex-1 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+                >
+                <button
+                    type="submit"
+                    class="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg font-semibold transition"
+                >
+                    Upload
+                </button>
+            </form>
+            <p id="cookiesMsg" class="text-sm mt-3 hidden"></p>
+        </div>
+
+        <!-- Input Form -->
         <div class="bg-gray-800 rounded-lg p-6 mb-6">
             <form id="clipForm">
                 <div class="mb-4">
                     <label class="block text-sm font-medium mb-2">YouTube URL</label>
-                    <input 
-                        type="url" 
-                        id="youtubeUrl" 
+                    <input
+                        type="url"
+                        id="youtubeUrl"
                         class="w-full px-4 py-2 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
                         placeholder="https://www.youtube.com/watch?v=..."
                         required
                     >
                 </div>
-                
+
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium mb-2">Aspect Ratio</label>
@@ -45,13 +72,13 @@
                         </select>
                     </div>
                 </div>
-                
+
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium mb-2">Jumlah Klip Maks</label>
-                        <input 
-                            type="number" 
-                            id="maxClips" 
+                        <input
+                            type="number"
+                            id="maxClips"
                             class="w-full px-4 py-2 bg-gray-700 rounded-lg border border-gray-600"
                             value="3"
                             min="1"
@@ -60,9 +87,9 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-2">Durasi Min (detik)</label>
-                        <input 
-                            type="number" 
-                            id="minDuration" 
+                        <input
+                            type="number"
+                            id="minDuration"
                             class="w-full px-4 py-2 bg-gray-700 rounded-lg border border-gray-600"
                             value="20"
                             min="10"
@@ -70,8 +97,8 @@
                         >
                     </div>
                 </div>
-                
-                <button 
+
+                <button
                     type="submit"
                     id="submitBtn"
                     class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-semibold transition"
@@ -80,7 +107,8 @@
                 </button>
             </form>
         </div>
-        
+
+        <!-- Progress -->
         <div id="progress" class="hidden bg-gray-800 rounded-lg p-6 mb-6">
             <h2 class="text-xl font-semibold mb-4">Processing...</h2>
             <div class="mb-4">
@@ -90,18 +118,20 @@
                 <p id="progressText" class="text-sm text-gray-400 mt-2">Waiting...</p>
             </div>
         </div>
-        
+
+        <!-- Results -->
         <div id="results" class="hidden">
             <h2 class="text-xl font-semibold mb-4">Generated Clips</h2>
             <div id="clipsList" class="space-y-4"></div>
         </div>
-        
+
+        <!-- Error -->
         <div id="error" class="hidden bg-red-900/50 rounded-lg p-6 mb-6">
             <h2 class="text-xl font-semibold mb-2 text-red-400">Error</h2>
             <p id="errorText" class="text-gray-300"></p>
         </div>
     </div>
-    
+
     <script src="/static/app.js"></script>
 </body>
 </html>

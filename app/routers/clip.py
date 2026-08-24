@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
 from fastapi.responses import FileResponse
 from app.models import ClipRequest, ClipJobStatus, ClipResult
 from app.services.downloader import downloader
@@ -10,15 +10,16 @@ from app.database import User
 import uuid
 import asyncio
 import os
-import logging
-import time
+import shutil
 from typing import Dict
+import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 jobs: Dict[str, ClipJobStatus] = {}
-CLIP_TTL = int(os.environ.get("CLIPPER_CLIP_TTL", "600"))
+CLIP_TTL_SECONDS = int(os.environ.get("CLIPPER_CLIP_TTL", "600"))
+COOKIES_PATH = os.environ.get("CLIPPER_COOKIES_FILE", "/app/data/cookies.txt")
 
 
 def _delete_quietly(path: str):
@@ -29,7 +30,7 @@ def _delete_quietly(path: str):
         pass
 
 
-async def _schedule_ttl_deletion(path: str, ttl: int = CLIP_TTL):
+async def _schedule_ttl_deletion(path: str, ttl: int = CLIP_TTL_SECONDS):
     try:
         await asyncio.sleep(ttl)
         _delete_quietly(path)
@@ -44,16 +45,16 @@ async def create_clip_job(
     current_user: User = Depends(get_current_user)
 ):
     job_id = str(uuid.uuid4())[:8]
-    
+
     jobs[job_id] = ClipJobStatus(
         job_id=job_id,
         status="pending",
         progress=0,
         message="Job created, waiting to start"
     )
-    
+
     background_tasks.add_task(process_clip_job, job_id, request)
-    
+
     return jobs[job_id]
 
 
@@ -76,9 +77,9 @@ async def download_clip(
     output_path = f"/tmp/youtube-clipper/output/{clip_id}.mp4"
     if not os.path.exists(output_path):
         raise HTTPException(status_code=404, detail="Clip not found (already downloaded or expired)")
-    
+
     background_tasks.add_task(_delete_quietly, output_path)
-    
+
     return FileResponse(
         output_path,
         media_type="video/mp4",
@@ -86,7 +87,42 @@ async def download_clip(
     )
 
 
+@router.post("/clip/cookies")
+async def upload_cookies(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload cookies.txt untuk bypass deteksi bot YouTube."""
+    if file.content_type != "text/plain" and not file.filename.endswith(".txt"):
+        raise HTTPException(status_code=400, detail="File harus berformat .txt (cookies.txt)")
+    
+    # Pastikan directory ada
+    os.makedirs(os.path.dirname(COOKIES_PATH), exist_ok=True)
+    
+    # Simpan file
+    contents = await file.read()
+    with open(COOKIES_PATH, "wb") as f:
+        f.write(contents)
+    
+    logger.info(f"Cookies uploaded by {current_user.username} to {COOKIES_PATH}")
+    
+    return {"message": "Cookies berhasil diupload", "path": COOKIES_PATH}
+
+
+@router.get("/clip/cookies/status")
+async def cookies_status(current_user: User = Depends(get_current_user)):
+    """Cek apakah cookies.txt tersedia."""
+    exists = os.path.exists(COOKIES_PATH)
+    size = os.path.getsize(COOKIES_PATH) if exists else 0
+    return {
+        "exists": exists,
+        "size_bytes": size,
+        "path": COOKIES_PATH if exists else None
+    }
+
+
 async def process_clip_job(job_id: str, request: ClipRequest):
+    """Background task to process video, render clips, and schedule their deletion."""
     rendered_paths = []
     video_id = None
     srt_paths = []

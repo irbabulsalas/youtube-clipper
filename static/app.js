@@ -1,6 +1,7 @@
 const API_BASE = '/api';
 let token = localStorage.getItem('token');
 
+// Auth guard
 (async () => {
     if (!token) {
         window.location.href = '/login.html';
@@ -30,6 +31,7 @@ function logout() {
     window.location.href = '/login.html';
 }
 
+// Helper untuk fetch dengan auth
 async function authFetch(url, options = {}) {
     const res = await fetch(url, {
         ...options,
@@ -47,6 +49,62 @@ async function authFetch(url, options = {}) {
     return res;
 }
 
+// === Cookies Upload ===
+document.getElementById('cookiesForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('cookiesFile');
+    if (!fileInput.files || fileInput.files.length === 0) {
+        showCookiesMsg('Pilih file cookies.txt dulu', false);
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const res = await authFetch(`${API_BASE}/clip/cookies`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            showCookiesMsg('Cookies berhasil diupload! YouTube bot detection sudah melewati.', true);
+            fileInput.value = '';
+        } else {
+            showCookiesMsg(data.detail || 'Upload gagal', false);
+        }
+    } catch (error) {
+        showCookiesMsg('Error: ' + error.message, false);
+    }
+});
+
+// Cek status cookies
+async function checkCookiesStatus() {
+    try {
+        const res = await authFetch(`${API_BASE}/clip/cookies/status`);
+        const data = await res.json();
+        
+        if (data.exists) {
+            showCookiesMsg(`Cookies tersedia (${data.size_bytes} bytes)`, true);
+        } else {
+            showCookiesMsg('Belum ada cookies — upload dulu untuk bypass bot', false);
+        }
+    } catch (error) {
+        showCookiesMsg('Gagal mengecek cookies', false);
+    }
+}
+
+function showCookiesMsg(msg, isSuccess) {
+    const el = document.getElementById('cookiesMsg');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    el.className = 'text-sm mt-3 ' + (isSuccess ? 'text-green-400' : 'text-yellow-400');
+}
+
+// === Clip Form ===
 document.getElementById('clipForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
