@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Admin — YouTube Clipper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-2xl px-4">
+        <h1 class="text-3xl font-bold text-center mb-2">🎬 YouTube Clipper</h1>
+        <p class="text-center text-gray-400 mb-8">Selamat datang, Admin! Pilih menu:</p>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <a href="/index.html" class="bg-gray-800 hover:bg-gray-700 rounded-lg p-8 text-center transition block">
+                <div class="text-5xl mb-4">🎬</div>
+                <h2 class="text-xl font-bold mb-2">Halaman Klip</h2>
+                <p class="text-sm text-gray-400">Buat klip video YouTube dengan subtitle</p>
+            </a>
+            
+            <a href="/admin.html" class="bg-gray-800 hover:bg-gray-700 rounded-lg p-8 text-center transition block">
+                <div class="text-5xl mb-4">👥</div>
+                <h2 class="text-xl font-bold mb-2">Kelola User</h2>
+                <p class="text-sm text-gray-400">Buat & hapus akun untuk dibagikan</p>
+            </a>
+        </div>
+        
+        <div class="text-center mt-8">
+            <button onclick="logout()" class="text-gray-500 hover:text-gray-300 text-sm">Logout</button>
+        </div>
+    </div>
+    
+    <script>
+        (async () => {
+            const token = localStorage.getItem('token');
+            if (!token) { window.location.href = '/login.html'; return; }
+            
+            const res = await fetch('/api/me', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            
+            if (!res.ok) { window.location.href = '/login.html'; return; }
+            
+            const user = await res.json();
+            if (!user.is_admin) { window.location.href = '/index.html'; return; }
+        })();
+        
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('is_admin');
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Clipper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold">🎬 YouTube Clipper</h1>
+            <div class="flex items-center gap-3">
+                <span id="userInfo" class="text-sm text-gray-400"></span>
+                <button onclick="logout()" class="text-sm bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded">Logout</button>
+            </div>
+        </div>
+        
+        <div class="bg-gray-800 rounded-lg p-6 mb-6">
+            <form id="clipForm">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">YouTube URL</label>
+                    <input 
+                        type="url" 
+                        id="youtubeUrl" 
+                        class="w-full px-4 py-2 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                        placeholder="https://www.youtube.com/watch?v=..."
+                        required
+                    >
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Aspect Ratio</label>
+                        <select id="aspectRatio" class="w-full px-4 py-2 bg-gray-700 rounded-lg border border-gray-600">
+                            <option value="9:16">Vertical (9:16) - TikTok/Reels</option>
+                            <option value="16:9">Horizontal (16:9) - YouTube</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Subtitle Language</label>
+                        <select id="subtitleLanguage" class="w-full px-4 py-2 bg-gray-700 rounded-lg border border-gray-600">
+                            <option value="id">Indonesia</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Jumlah Klip Maks</label>
+                        <input 
+                            type="number" 
+                            id="maxClips" 
+                            class="w-full px-4 py-2 bg-gray-700 rounded-lg border border-gray-600"
+                            value="3"
+                            min="1"
+                            max="10"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Durasi Min (detik)</label>
+                        <input 
+                            type="number" 
+                            id="minDuration" 
+                            class="w-full px-4 py-2 bg-gray-700 rounded-lg border border-gray-600"
+                            value="20"
+                            min="10"
+                            max="60"
+                        >
+                    </div>
+                </div>
+                
+                <button 
+                    type="submit"
+                    id="submitBtn"
+                    class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-semibold transition"
+                >
+                    Generate Clips
+                </button>
+            </form>
+        </div>
+        
+        <div id="progress" class="hidden bg-gray-800 rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Processing...</h2>
+            <div class="mb-4">
+                <div class="bg-gray-700 rounded-full h-4 overflow-hidden">
+                    <div id="progressBar" class="bg-blue-500 h-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="progressText" class="text-sm text-gray-400 mt-2">Waiting...</p>
+            </div>
+        </div>
+        
+        <div id="results" class="hidden">
+            <h2 class="text-xl font-semibold mb-4">Generated Clips</h2>
+            <div id="clipsList" class="space-y-4"></div>
+        </div>
+        
+        <div id="error" class="hidden bg-red-900/50 rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-2 text-red-400">Error</h2>
+            <p id="errorText" class="text-gray-300"></p>
+        </div>
+    </div>
+    
+    <script src="/static/app.js"></script>
+</body>
+</html>

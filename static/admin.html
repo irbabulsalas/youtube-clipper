@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelola User — YouTube Clipper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">👥 Kelola User</h1>
+            <div class="flex gap-3">
+                <a href="/menu.html" class="text-sm bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg">← Menu</a>
+                <button onclick="logout()" class="text-sm bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg">Logout</button>
+            </div>
+        </div>
+        
+        <div class="bg-gray-800 rounded-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Buat Akun Baru</h2>
+            <form id="createUserForm" class="flex flex-col sm:flex-row gap-3">
+                <input 
+                    type="text" 
+                    id="newUsername" 
+                    placeholder="Username" 
+                    class="flex-1 px-4 py-2 bg-gray-700 rounded-lg border border-gray-600"
+                    required
+                >
+                <input 
+                    type="text" 
+                    id="newPassword" 
+                    placeholder="Password" 
+                    class="flex-1 px-4 py-2 bg-gray-700 rounded-lg border border-gray-600"
+                    required
+                >
+                <button type="submit" class="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg font-semibold">
+                    Buat
+                </button>
+            </form>
+            <p id="createMsg" class="text-sm mt-3 hidden"></p>
+        </div>
+        
+        <div class="bg-gray-800 rounded-lg p-6">
+            <h2 class="text-lg font-semibold mb-4">Daftar User</h2>
+            <div id="userList" class="space-y-2">Memuat...</div>
+        </div>
+    </div>
+    
+    <script>
+        const token = localStorage.getItem('token');
+        
+        (async () => {
+            if (!token) { window.location.href = '/login.html'; return; }
+            const res = await fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (!res.ok) { window.location.href = '/login.html'; return; }
+            const user = await res.json();
+            if (!user.is_admin) { window.location.href = '/index.html'; return; }
+            loadUsers();
+        })();
+        
+        async function loadUsers() {
+            const res = await fetch('/api/admin/users', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const users = await res.json();
+            
+            const list = document.getElementById('userList');
+            list.innerHTML = '';
+            
+            users.forEach(u => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between bg-gray-700 rounded-lg px-4 py-3';
+                
+                const isAdmin = u.is_admin 
+                    ? '<span class="text-xs bg-blue-600 px-2 py-1 rounded mr-2">ADMIN</span>' 
+                    : '';
+                
+                row.innerHTML = `
+                    <span class="font-medium">${isAdmin}${u.username}</span>
+                    ${u.is_admin ? '' : `<button 
+                        onclick="deleteUser('${u.username}')" 
+                        class="text-red-400 hover:text-red-300 text-sm"
+                    >Hapus</button>`}
+                `;
+                list.appendChild(row);
+            });
+        }
+        
+        document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('newUsername').value;
+            const password = document.getElementById('newPassword').value;
+            
+            const res = await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token 
+                },
+                body: JSON.stringify({ username, password })
+            });
+            
+            const msg = document.getElementById('createMsg');
+            msg.classList.remove('hidden');
+            
+            if (res.ok) {
+                msg.textContent = `✓ Akun "${username}" berhasil dibuat — bisa langsung dipakai login`;
+                msg.className = 'text-sm mt-3 text-green-400';
+                document.getElementById('createUserForm').reset();
+                loadUsers();
+            } else {
+                const err = await res.json();
+                msg.textContent = `✗ ${err.detail || 'Gagal membuat akun'}`;
+                msg.className = 'text-sm mt-3 text-red-400';
+            }
+        });
+        
+        async function deleteUser(username) {
+            if (!confirm(`Hapus akun "${username}"?`)) return;
+            
+            const res = await fetch(`/api/admin/users/${username}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            
+            if (res.ok) {
+                loadUsers();
+            } else {
+                const err = await res.json();
+                alert(err.detail || 'Gagal menghapus');
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('is_admin');
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>
