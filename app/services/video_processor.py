@@ -64,44 +64,41 @@ class VideoProcessor:
         aspect_ratio: str = "9:16",
         subtitle_path: Optional[str] = None
     ) -> list:
-        """Build ffmpeg command to create vertical video clip from audio + subtitles."""
-        
+        """Build ffmpeg command: black background video + trimmed audio + burned subtitles."""
+
         # Parse aspect ratio - lower resolution saves RAM
         if aspect_ratio == "9:16":
-            width, height = 480, 854  # Lower than 720x1280
+            width, height = 480, 854
         elif aspect_ratio == "16:9":
             width, height = 854, 480
         else:
             width, height = 480, 854
-        
+
+        # -ss/-t on the audio input handle trimming (no atrim needed)
         cmd = [
             "ffmpeg", "-y",
-            "-ss", str(start_time),
-            "-t", str(duration),
-            "-i", audio_path,
-            "-f", "lavfi", "-i", f"color=c=black:s={width}x{height}:d={duration}",
-            "-filter_complex",
-            (
-                f"[0:a]atrim=start={start_time}:end={start_time + duration},asetpts=PTS-STARTPTS[a];"
-                f"[1:v]scale={width}:{height}[bg];"
-                f"[bg][a]overlay=shortest=1:x=0:y=0,scale={width}:{height}[v]"
-            ),
-            "-map", "[v]",
-            "-map", "0:a?",
+            "-ss", str(start_time), "-t", str(duration), "-i", audio_path,
+            "-f", "lavfi", "-t", str(duration), "-i", f"color=c=black:s={width}x{height}:r=25",
+            "-map", "1:v", "-map", "0:a",
+        ]
+
+        # Burn subtitles onto the black background video stream
+        if subtitle_path and os.path.exists(subtitle_path):
+            style = "FontName=DejaVu Sans,FontSize=18,PrimaryColour=&H00FFFFFF,Bold=1,Alignment=2,MarginV=40"
+            # Escape path for ffmpeg filter
+            safe_path = subtitle_path.replace(":", "\\:")
+            cmd += ["-vf", f"subtitles='{safe_path}':charenc=utf-8:force_style='{style}'"]
+
+        cmd += [
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-crf", "30",
             "-c:a", "aac",
             "-b:a", "64k",
+            "-shortest",
             "-movflags", "+faststart",
+            output_path,
         ]
-
-        if subtitle_path and os.path.exists(subtitle_path):
-            cmd.extend([
-                "-vf", f"subtitles={subtitle_path}:charenc=utf-8:force_style='FontName=DejaVu Sans,FontSize=20,PrimaryColour=&H00FFFFFF,Bold=1'",
-            ])
-
-        cmd.append(output_path)
 
         return cmd
 
