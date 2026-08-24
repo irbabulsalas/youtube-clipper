@@ -4,6 +4,9 @@ from fastapi.responses import FileResponse
 from app.routers import clip, health, auth as auth_router, admin
 from app.database import get_db
 from app.auth import init_owner_account
+import logging
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="YouTube Clipper",
@@ -23,6 +26,15 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def startup_event():
     db = next(get_db())
     init_owner_account(db)
+    # Preload Whisper model during startup to avoid OOM mid-job
+    try:
+        from app.services.transcriber import transcriber
+        logger.info("Preloading Whisper tiny model...")
+        # Touch the model property to trigger load
+        _ = transcriber.model
+        logger.info("Whisper model preloaded successfully")
+    except Exception as e:
+        logger.warning(f"Whisper model preload failed: {e} - will retry on first job")
 
 
 @app.get("/", response_class=FileResponse)
