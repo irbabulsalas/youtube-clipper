@@ -51,7 +51,40 @@ class ClipFinder:
                 logger.error(f"Fallback LLM also failed: {e2}")
                 clips = self._heuristic_clips(segments, max_clips, min_duration, max_duration)
         
-        return clips
+        # Final safety: ensure clips have start_time & end_time
+        validated_clips = []
+        for clip in clips:
+            try:
+                if isinstance(clip, dict) and "start_time" in clip and "end_time" in clip:
+                    validated_clips.append(clip)
+                elif isinstance(clip, dict):
+                    validated_clips.append({
+                        "start_time": clip.get("start_time", 0),
+                        "end_time": clip.get("end_time", 30),
+                        "reason": clip.get("reason", "Auto-generated"),
+                        "score": clip.get("score", 0.5)
+                    })
+            except Exception:
+                continue
+        
+        if not validated_clips:
+            # Absolute fallback: grab first segment
+            if segments:
+                validated_clips.append({
+                    "start_time": 0,
+                    "end_time": min(30, segments[0].get("end", 30)),
+                    "reason": "Default first segment",
+                    "score": 0.5
+                })
+            else:
+                validated_clips.append({
+                    "start_time": 0,
+                    "end_time": 30,
+                    "reason": "Default clip",
+                    "score": 0.5
+                })
+        
+        return validated_clips[:max_clips]
     
     def _build_prompt(self, transcript, segments, max_clips, min_duration, max_duration, language) -> str:
         if language == "id":
